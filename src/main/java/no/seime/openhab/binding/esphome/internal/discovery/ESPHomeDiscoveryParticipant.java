@@ -63,8 +63,7 @@ public class ESPHomeDiscoveryParticipant implements MDNSDiscoveryParticipant {
         if ("esphomelib".equals(application)) {
             String friendlyName = service.getPropertyString("friendly_name");
             String name = service.getName();
-            String board = service.getPropertyString("board");
-            String label = String.format("%s / %s", friendlyName != null ? friendlyName : name, board);
+            String label = friendlyName != null ? friendlyName : name;
 
             final ThingUID deviceUID = getThingUID(service);
 
