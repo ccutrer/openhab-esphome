@@ -65,17 +65,15 @@ public class ESPHomeDiscoveryParticipant implements MDNSDiscoveryParticipant {
             if (friendlyName != null) {
                 // Defer discovery until TXT records are available
                 String name = service.getName();
-                String board = service.getPropertyString("board");
-                String label = String.format("%s / %s", friendlyName, board);
 
                 final ThingUID deviceUID = getThingUID(service);
 
-                logger.debug("Found ESPHome device via mDNS: {} ", label);
+                logger.debug("Found ESPHome device via mDNS: {} ", friendlyName);
 
                 return DiscoveryResultBuilder.create(deviceUID).withThingType(BindingConstants.THING_TYPE_DEVICE)
                         .withProperty(PROPERTY_HOSTNAME, service.getServer())
                         .withProperty(PROPERTY_PORT, service.getPort()).withProperty(PROPERTY_DEVICEID, name)
-                        .withLabel(label).withRepresentationProperty(PROPERTY_DEVICEID).build();
+                        .withLabel(friendlyName).withRepresentationProperty(PROPERTY_DEVICEID).build();
             }
         }
         return null;
