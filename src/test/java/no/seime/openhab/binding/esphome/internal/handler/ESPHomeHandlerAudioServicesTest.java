@@ -623,7 +623,7 @@ class ESPHomeHandlerAudioServicesTest {
     }
 
     @Test
-    void doesNotRetryVoiceDialogOnOpenHABWithoutDialogProvider() throws Exception {
+    void retriesMissingVoiceDialogProviderOnlyWhenSupportedByOpenHAB() throws Exception {
         ESPHomeConfiguration config = new ESPHomeConfiguration();
         config.voiceDialog = true;
         setField("config", config);
@@ -634,7 +634,14 @@ class ESPHomeHandlerAudioServicesTest {
 
         verify(bundleContext).getServiceReference(DIALOG_PROVIDER);
         assertFalse(source.hasDialogTrigger());
-        assertNull(getField("voiceDialogRestartFuture"));
+        boolean providerSupported;
+        try {
+            Class.forName(DIALOG_PROVIDER, false, AudioSink.class.getClassLoader());
+            providerSupported = true;
+        } catch (ClassNotFoundException e) {
+            providerSupported = false;
+        }
+        assertEquals(providerSupported, getField("voiceDialogRestartFuture") != null);
     }
 
     @Test
