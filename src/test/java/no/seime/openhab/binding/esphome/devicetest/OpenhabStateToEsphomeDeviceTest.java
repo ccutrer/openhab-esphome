@@ -63,6 +63,9 @@ public class OpenhabStateToEsphomeDeviceTest extends AbstractESPHomeDeviceTest {
         testParameters.add(new Parameter("ItemStateChanged",
                 ItemEventFactoryCompat.stateChanged("ItemStateChanged", itemNewState, itemExistingState),
                 itemExistingState, itemNewState));
+        testParameters
+                .add(new Parameter("ItemStateChanged", ItemEventFactory.createStateChangedEvent("ItemStateChanged",
+                        itemNewState, itemExistingState, null, null), itemExistingState, itemNewState));
         testParameters.add(new Parameter("ItemState", ItemEventFactory.createStateEvent("ItemState", itemNewState),
                 itemExistingState, itemNewState));
         testParameters.add(
