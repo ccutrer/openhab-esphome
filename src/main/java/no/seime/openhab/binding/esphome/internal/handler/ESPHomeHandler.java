@@ -200,7 +200,6 @@ public class ESPHomeHandler extends BaseThingHandler implements CommunicationLis
             disposed = true;
             eventSubscriber.removeEventSubscriptions(this);
             stateDescriptionProvider.removeDescriptionsForThing(thing.getUID());
-            setUndefToAllChannels();
             cancelConnectFuture();
             cancelPingWatchdog();
             cancelConnectionTimeoutWatchdog();
@@ -299,11 +298,6 @@ public class ESPHomeHandler extends BaseThingHandler implements CommunicationLis
 
     public void sendMessage(GeneratedMessage message) throws ProtocolAPIError {
         frameHelper.send(message);
-    }
-
-    private void setUndefToAllChannels() {
-        // Update all channels to UNDEF to avoid stale values
-        getThing().getChannels().forEach(channel -> updateState(channel.getUID(), UnDefType.UNDEF));
     }
 
     @Override
@@ -423,7 +417,6 @@ public class ESPHomeHandler extends BaseThingHandler implements CommunicationLis
             updateStatus(ThingStatus.OFFLINE, detail, finalMessage);
 
             eventSubscriber.removeEventSubscriptions(this);
-            setUndefToAllChannels();
             cancelPingWatchdog();
             cancelConnectionTimeoutWatchdog();
 
