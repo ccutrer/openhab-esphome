@@ -364,9 +364,6 @@ public abstract class AbstractMessageHandler<S extends GeneratedMessage, T exten
             DeviceClass defaultDeviceClass, String rawDeviceClass, String entity, String documentationLink) {
 
         if (deviceClass == null) {
-            logger.warn(
-                    "[{}] Device class '{}' unknown, using 'None' for entity '{}'. To get rid of this log message, set 'device_class' attribute to '' or a value from this list: {}",
-                    handler.getLogPrefix(), rawDeviceClass, entity, documentationLink);
             deviceClass = defaultDeviceClass;
         }
         if (configuration != null)
