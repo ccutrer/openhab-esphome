@@ -30,7 +30,6 @@ import org.openhab.core.types.CommandDescription;
 import org.openhab.core.types.RefreshType;
 import org.openhab.core.types.State;
 import org.openhab.core.types.StateDescription;
-import org.openhab.core.types.UnDefType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -235,11 +234,6 @@ public class ESPHomeHandler extends BaseThingHandler implements CommunicationLis
         frameHelper.send(message);
     }
 
-    private void setUndefToAllChannels() {
-        // Update all channels to UNDEF to avoid stale values
-        getThing().getChannels().forEach(channel -> updateState(channel.getUID(), UnDefType.UNDEF));
-    }
-
     @Override
     public synchronized void handleCommand(ChannelUID channelUID, Command command) {
 
@@ -316,7 +310,6 @@ public class ESPHomeHandler extends BaseThingHandler implements CommunicationLis
         if (!disposed) {
             updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR,
                     "ESPHome device abruptly closed connection: " + message);
-            setUndefToAllChannels();
             frameHelper.close();
             cancelPingWatchdog();
             connectionState = ConnectionState.UNINITIALIZED;
@@ -329,7 +322,6 @@ public class ESPHomeHandler extends BaseThingHandler implements CommunicationLis
         eventSubscriber.removeEventSubscriptions(this);
         if (!disposed) {
             updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, error.toString());
-            setUndefToAllChannels();
             cancelPingWatchdog();
             frameHelper.close();
             connectionState = ConnectionState.UNINITIALIZED;
@@ -345,7 +337,6 @@ public class ESPHomeHandler extends BaseThingHandler implements CommunicationLis
                     "ESPHome device requested disconnect. Will reconnect in %d seconds", reconnectDelaySeconds));
 
             frameHelper.close();
-            setUndefToAllChannels();
             connectionState = ConnectionState.UNINITIALIZED;
             cancelPingWatchdog();
             scheduleConnect(reconnectDelaySeconds);
