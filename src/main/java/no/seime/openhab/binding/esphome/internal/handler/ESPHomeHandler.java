@@ -265,7 +265,6 @@ public class ESPHomeHandler extends BaseThingHandler implements CommunicationLis
             versionService.removeListener(this);
             eventSubscriber.removeEventSubscriptions(this);
             stateDescriptionProvider.removeDescriptionsForThing(thing.getUID());
-            setUndefToAllChannels();
             cancelConnectFuture();
             cancelPingWatchdog();
             cancelConnectionTimeoutWatchdog();
@@ -524,11 +523,6 @@ public class ESPHomeHandler extends BaseThingHandler implements CommunicationLis
         return executorService.schedule(command, delay, unit);
     }
 
-    private void setUndefToAllChannels() {
-        // Update all channels to UNDEF to avoid stale values
-        getThing().getChannels().forEach(channel -> updateState(channel.getUID(), UnDefType.UNDEF));
-    }
-
     @Override
     public void handleCommand(ChannelUID channelUID, Command command) {
         synchronized (connectionStateLock) {
@@ -662,8 +656,6 @@ public class ESPHomeHandler extends BaseThingHandler implements CommunicationLis
             resolvedIpAddressForCurrentConnection = null;
 
             if (!config.deepSleep) {
-                setUndefToAllChannels();
-
                 int nextDelay = exponentialBackoff.getNextDelay();
                 String finalMessage = String.format("%s. Will reconnect in %d seconds", message, nextDelay);
 
