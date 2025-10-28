@@ -265,7 +265,7 @@ public class ESPHomeHandler extends BaseThingHandler implements CommunicationLis
     public void handleCommand(ChannelUID channelUID, Command command) {
         synchronized (connectionStateLock) {
             if (connectionState != ConnectionState.CONNECTED) {
-                logger.warn("[{}] Not connected, ignoring command {}", logPrefix, command);
+                logger.debug("[{}] Not connected, ignoring command {}", logPrefix, command);
                 return;
             }
 
