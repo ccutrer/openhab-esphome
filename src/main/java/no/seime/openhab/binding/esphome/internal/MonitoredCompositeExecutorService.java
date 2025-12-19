@@ -633,7 +633,7 @@ public class MonitoredCompositeExecutorService implements ScheduledExecutorServi
             } finally {
                 long duration = System.currentTimeMillis() - startTime;
                 if (duration > maxExecutionTime) {
-                    logger.warn(
+                    logger.debug(
                             "Task '{}' took longer than expected to execute: {}ms, expected < {}ms. Task was submitted here: {}",
                             taskDescription != null ? taskDescription : "<unnamed>", duration, maxExecutionTime,
                             formatStacktrace(stackTrace));
@@ -641,7 +641,7 @@ public class MonitoredCompositeExecutorService implements ScheduledExecutorServi
 
                 long waitTime = startTime - submitTime;
                 if (!isScheduled && waitTime > MAX_WAIT_TIME_MS) {
-                    logger.warn(
+                    logger.debug(
                             "Task '{}' stayed longer than {}ms in queue before being processed: {}ms. This may indicate a too small threadpool or inadequate hardware for openHAB to run on. Task was submitted here: {}",
                             taskDescription != null ? taskDescription : "<unnamed>", MAX_WAIT_TIME_MS, waitTime,
                             formatStacktrace(stackTrace));
@@ -676,7 +676,7 @@ public class MonitoredCompositeExecutorService implements ScheduledExecutorServi
             } finally {
                 long duration = System.currentTimeMillis() - startTime;
                 if (duration > maxExecutionTime) {
-                    logger.warn(
+                    logger.debug(
                             "Task '{}' took longer than expected to execute: {}ms, expected < {}ms. Task was submitted here: {}",
                             taskDescription != null ? taskDescription : "<unnamed>", duration, maxExecutionTime,
                             formatStacktrace(stackTrace));
@@ -684,7 +684,7 @@ public class MonitoredCompositeExecutorService implements ScheduledExecutorServi
 
                 long waitTime = startTime - submitTime;
                 if (!isScheduled && waitTime > MAX_WAIT_TIME_MS) {
-                    logger.warn(
+                    logger.debug(
                             "Task '{}' stayed longer than {}ms in queue before being processed: {}ms. This may indicate a too small threadpool or inadequate hardware for openHAB to run on. Task was submitted here: {}",
                             taskDescription != null ? taskDescription : "<unnamed>", MAX_WAIT_TIME_MS, waitTime,
                             formatStacktrace(stackTrace));
