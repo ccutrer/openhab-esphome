@@ -3,9 +3,6 @@ package no.seime.openhab.binding.esphome.internal.message;
 import static org.openhab.core.library.CoreItemFactory.STRING;
 
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.ReentrantLock;
 
 import org.openhab.core.library.types.*;
 import org.openhab.core.thing.Channel;
@@ -16,11 +13,6 @@ import org.openhab.core.types.Command;
 import org.openhab.core.types.StateDescription;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
-import com.google.common.cache.RemovalListener;
 
 import io.esphome.api.*;
 import no.seime.openhab.binding.esphome.internal.BindingConstants;
@@ -38,33 +30,8 @@ public class CoverMessageHandler extends AbstractMessageHandler<ListEntitiesCove
 
     private final Logger logger = LoggerFactory.getLogger(CoverMessageHandler.class);
 
-    private final ReentrantLock lock = new ReentrantLock();
-
-    private final LoadingCache<Integer, CoverCommandRequest.Builder> commandAggregatingCache;
-
-    private Thread expiryThread = null;
-
     public CoverMessageHandler(ESPHomeHandler handler) {
         super(handler);
-
-        commandAggregatingCache = CacheBuilder.newBuilder().maximumSize(10)
-                .expireAfterAccess(400, TimeUnit.MILLISECONDS)
-                .removalListener((RemovalListener<Integer, CoverCommandRequest.Builder>) notification -> {
-                    if (notification.getValue() != null) {
-                        try {
-                            logger.debug("[{}] Sending Cover command for key {}", handler.getLogPrefix(),
-                                    notification.getValue().getKey());
-                            handler.sendMessage(notification.getValue().build());
-                        } catch (ProtocolAPIError e) {
-                            logger.error("[{}] Failed to send Cover command for key {}", handler.getLogPrefix(),
-                                    notification.getValue().getKey(), e);
-                        }
-                    }
-                }).build(new CacheLoader<>() {
-                    public CoverCommandRequest.Builder load(Integer key) {
-                        return CoverCommandRequest.newBuilder().setKey(key);
-                    }
-                });
     }
 
     public static String stripEnumPrefix(CoverOperation climatePreset) {
@@ -73,82 +40,57 @@ public class CoverMessageHandler extends AbstractMessageHandler<ListEntitiesCove
     }
 
     @Override
-    public void handleCommand(Channel channel, Command command, int key) {
-        try {
-            lock.lock();
-            CoverCommandRequest.Builder builder = commandAggregatingCache.get(key);
+    public void handleCommand(Channel channel, Command command, int key) throws ProtocolAPIError {
+        CoverCommandRequest.Builder builder = CoverCommandRequest.newBuilder().setKey(key);
 
-            if (command == StopMoveType.STOP) {
-                builder.setStop(true);
-                builder.setLegacyCommand(LegacyCoverCommand.LEGACY_COVER_COMMAND_STOP);
-            } else {
+        if (command == StopMoveType.STOP) {
+            builder.setStop(true);
+            builder.setLegacyCommand(LegacyCoverCommand.LEGACY_COVER_COMMAND_STOP);
+        } else {
 
-                String subCommand = (String) channel.getConfiguration()
-                        .get(BindingConstants.CHANNEL_CONFIGURATION_ENTITY_FIELD);
-                switch (subCommand) {
-                    case CHANNEL_POSITION -> {
-                        if (command instanceof QuantityType<?> qt) {
-                            builder.setPosition((1 - qt.floatValue()) / 100);
-                        } else if (command instanceof PercentType dc) {
-                            builder.setPosition((1 - dc.floatValue()));
-                        } else if (command instanceof DecimalType dc) {
-                            builder.setPosition((1 - dc.floatValue()) / 100);
-                        } else if (command == UpDownType.UP) {
-                            builder.setHasLegacyCommand(true);
-                            builder.setLegacyCommand(LegacyCoverCommand.LEGACY_COVER_COMMAND_OPEN);
-                            builder.setPosition(1);
-                        } else if (command == UpDownType.DOWN) {
-                            builder.setHasLegacyCommand(true);
-                            builder.setLegacyCommand(LegacyCoverCommand.LEGACY_COVER_COMMAND_CLOSE);
-                            builder.setPosition(0);
-                        }
-                        builder.setHasPosition(true);
+            String subCommand = (String) channel.getConfiguration()
+                    .get(BindingConstants.CHANNEL_CONFIGURATION_ENTITY_FIELD);
+            switch (subCommand) {
+                case CHANNEL_POSITION -> {
+                    if (command instanceof QuantityType<?> qt) {
+                        builder.setPosition((1 - qt.floatValue()) / 100);
+                    } else if (command instanceof PercentType dc) {
+                        builder.setPosition((1 - dc.floatValue()));
+                    } else if (command instanceof DecimalType dc) {
+                        builder.setPosition((1 - dc.floatValue()) / 100);
+                    } else if (command == UpDownType.UP) {
+                        builder.setHasLegacyCommand(true);
+                        builder.setLegacyCommand(LegacyCoverCommand.LEGACY_COVER_COMMAND_OPEN);
+                        builder.setPosition(1);
+                    } else if (command == UpDownType.DOWN) {
+                        builder.setHasLegacyCommand(true);
+                        builder.setLegacyCommand(LegacyCoverCommand.LEGACY_COVER_COMMAND_CLOSE);
+                        builder.setPosition(0);
                     }
-                    case CHANNEL_TILT -> {
-                        if (command instanceof QuantityType<?> qt) {
-                            builder.setTilt(qt.floatValue() / 100);
-                        } else if (command instanceof DecimalType dc) {
-                            builder.setTilt(dc.floatValue() / 100);
-                        } else if (command == UpDownType.UP) {
-                            builder.setTilt(1);
-                        } else if (command == UpDownType.DOWN) {
-                            builder.setTilt(0);
-                        }
-                        builder.setHasTilt(true);
+                    builder.setHasPosition(true);
+                }
+                case CHANNEL_TILT -> {
+                    if (command instanceof QuantityType<?> qt) {
+                        builder.setTilt(qt.floatValue() / 100);
+                    } else if (command instanceof DecimalType dc) {
+                        builder.setTilt(dc.floatValue() / 100);
+                    } else if (command == UpDownType.UP) {
+                        builder.setTilt(1);
+                    } else if (command == UpDownType.DOWN) {
+                        builder.setTilt(0);
                     }
+                    builder.setHasTilt(true);
+                }
 
-                    case CHANNEL_CURRENT_OPERATION -> logger.warn("current_operation channel is read-only");
-                    default -> logger.warn("[{}] Unknown Cover subcommand {}", handler.getLogPrefix(), subCommand);
+                case CHANNEL_CURRENT_OPERATION -> logger.warn("current_operation channel is read-only");
+                default -> {
+                    logger.warn("[{}] Unknown Cover subcommand {}", handler.getLogPrefix(), subCommand);
+                    return;
                 }
             }
-            // Start a thread that will clean up the cache (send the pending messages)
-            if (expiryThread == null || !expiryThread.isAlive()) {
-                expiryThread = new Thread(() -> {
-                    while (commandAggregatingCache.size() > 0) {
-                        try {
-                            lock.lock();
-                            logger.debug("[{}] Calling cleanup", handler.getLogPrefix());
-                            commandAggregatingCache.cleanUp();
-                        } finally {
-                            lock.unlock();
-                        }
-                        try {
-                            Thread.sleep(200);
-                        } catch (InterruptedException e) {
-                            Thread.currentThread().interrupt();
-                            logger.error("[{}] Error sleeping", handler.getLogPrefix(), e);
-                        }
-
-                    }
-                });
-                expiryThread.start();
-            }
-
-        } catch (ExecutionException e) {
-            logger.error("[{}] Error buffering Cover command", handler.getLogPrefix(), e);
-        } finally {
-            lock.unlock();
         }
+
+        handler.sendMessage(builder.build());
     }
 
     public void buildChannels(ListEntitiesCoverResponse rsp) {
