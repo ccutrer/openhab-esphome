@@ -20,7 +20,7 @@ public class MonitoredScheduledThreadPoolExecutor extends ScheduledThreadPoolExe
 
     private void logQueue() {
         if (getQueue().size() > 100)
-            logger.warn(
+            logger.debug(
                     "Queue size for processing packets from ESP device as well as maintaining the watchdog is high: {}",
                     getQueue().size());
     }
@@ -166,7 +166,7 @@ public class MonitoredScheduledThreadPoolExecutor extends ScheduledThreadPoolExe
             delegate.run();
             long duration = System.currentTimeMillis() - startTime;
             if (duration > maxExecutionTime) {
-                logger.warn(
+                logger.debug(
                         "Task '{}' took too long to execute: {}ms, expected < {}ms. Check the ESP network connectivity or the ESPHome device logs. Task was submitted here: {}",
                         taskDescription != null ? taskDescription : "<unnamed>", duration, maxExecutionTime,
                         formatStacktrace(stackTrace));
