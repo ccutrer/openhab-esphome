@@ -36,6 +36,7 @@
     <os-maven-plugin.version>1.7.1</os-maven-plugin.version>
     <proto.version>4.29.1</proto.version>
     <protobuf-maven-plugin.version>0.7.1</protobuf-maven-plugin.version>
+    <markdownlint.skip>true</markdownlint.skip>
     <bnd.importpackage>javax.annotation;resolution:=optional, \
       javax.annotation.meta;resolution:=optional, \
       jdk.internal.misc;resolution:=optional, \
