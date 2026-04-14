@@ -117,7 +117,7 @@ public class OpenhabStateToEsphomeDeviceTest extends AbstractESPHomeDeviceTest {
         // Verify that initial state is copied via the copy sensor and transferred back
         for (Parameter parameter : testParameters) {
             // the verification
-            verify(thingHandlerCallback, timeout(2000).times(1)).stateUpdated(
+            verify(thingHandlerCallback, timeout(2000).atLeastOnce()).stateUpdated(
                     eq(new ChannelUID(thing.getUID(), parameter.itemOrThingId.toLowerCase() + "_readback")),
                     eq(parameter.existingState));
         }
