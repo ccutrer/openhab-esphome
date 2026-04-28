@@ -81,6 +81,7 @@ import no.seime.openhab.binding.esphome.internal.comm.ConnectionSelector;
 import no.seime.openhab.binding.esphome.internal.comm.EncryptedFrameHelper;
 import no.seime.openhab.binding.esphome.internal.discovery.ESPHomeMDNSHostnameResolver;
 import no.seime.openhab.binding.esphome.internal.message.statesubscription.ESPHomeEventSubscriber;
+import no.seime.openhab.binding.esphome.internal.serial.ESPHomeSerialPortProvider;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -114,6 +115,8 @@ class ESPHomeHandlerAudioServicesTest {
     private FirmwareUpgradeService firmwareUpgradeService;
     @Mock
     private ESPHomeMDNSHostnameResolver mdnsHostnameResolver;
+    @Mock
+    private ESPHomeSerialPortProvider serialPortProvider;
 
     private ESPHomeHandler handler;
     private MonitoredCompositeExecutorService executor;
@@ -136,7 +139,7 @@ class ESPHomeHandlerAudioServicesTest {
                 new ConnectionSelector(), channelTypeProvider, stateDescriptionProvider, eventSubscriber, executor,
                 new KeySequentialExecutor(packetProcessorExecutor), eventPublisher, null, null, bundleContext,
                 versionService, firmwareUpgradeService, mdnsHostnameResolver, audioHTTPServer, networkAddressService,
-                null);
+                null, serialPortProvider);
         handler.setCallback(callback);
         setField("config", new ESPHomeConfiguration());
         setField("connectionState", enumValue(getFieldType("connectionState"), "CONNECTED"));
