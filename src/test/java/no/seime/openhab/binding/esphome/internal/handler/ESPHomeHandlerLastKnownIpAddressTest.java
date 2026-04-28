@@ -65,6 +65,7 @@ import no.seime.openhab.binding.esphome.internal.comm.ProtocolAPIError;
 import no.seime.openhab.binding.esphome.internal.discovery.ESPHomeMDNSHostnameResolver;
 import no.seime.openhab.binding.esphome.internal.message.statesubscription.ESPHomeEventSubscriber;
 import no.seime.openhab.binding.esphome.internal.message.statesubscription.EventSubscription;
+import no.seime.openhab.binding.esphome.internal.serial.ESPHomeSerialPortProvider;
 
 @ExtendWith(MockitoExtension.class)
 class ESPHomeHandlerLastKnownIpAddressTest {
@@ -91,6 +92,8 @@ class ESPHomeHandlerLastKnownIpAddressTest {
     private AudioHTTPServer audioHTTPServer;
     @Mock
     private NetworkAddressService networkAddressService;
+    @Mock
+    private ESPHomeSerialPortProvider serialPortProvider;
 
     @Mock
     private ManagedThingProvider managedThingProvider;
@@ -113,7 +116,7 @@ class ESPHomeHandlerLastKnownIpAddressTest {
         handler = new ESPHomeHandler(thing, new ConnectionSelector(), channelTypeProvider, stateDescriptionProvider,
                 eventSubscriber, executor, new KeySequentialExecutor(packetProcessorExecutor), eventPublisher, null,
                 null, bundleContext, versionService, firmwareUpgradeService, mdnsHostnameResolver, audioHTTPServer,
-                networkAddressService, managedThingProvider);
+                networkAddressService, managedThingProvider, serialPortProvider);
 
         setField("config", new ESPHomeConfiguration());
         setField("frameHelper", frameHelper);

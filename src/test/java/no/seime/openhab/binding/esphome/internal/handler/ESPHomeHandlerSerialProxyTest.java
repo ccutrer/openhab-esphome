@@ -16,7 +16,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.openhab.core.audio.AudioHTTPServer;
 import org.openhab.core.events.EventPublisher;
-import org.openhab.core.io.transport.mdns.MDNSClient;
 import org.openhab.core.net.NetworkAddressService;
 import org.openhab.core.thing.ThingStatusDetail;
 import org.openhab.core.thing.binding.ThingHandlerCallback;
@@ -71,9 +70,6 @@ class ESPHomeHandlerSerialProxyTest {
     @Mock
     private EncryptedFrameHelper frameHelper;
 
-    @Mock
-    private MDNSClient mdnsClient;
-
     private ESPHomeHandler handler;
     private MonitoredCompositeExecutorService executor;
     private ExecutorService packetProcessorExecutor;
@@ -85,9 +81,9 @@ class ESPHomeHandlerSerialProxyTest {
         packetProcessorExecutor = Executors.newSingleThreadExecutor();
         handler = new ESPHomeHandler(new ThingImpl(BindingConstants.THING_TYPE_DEVICE, "device"),
                 new ConnectionSelector(), channelTypeProvider, stateDescriptionProvider, eventSubscriber, executor,
-                packetProcessorExecutor, new KeySequentialExecutor(packetProcessorExecutor), eventPublisher, null,
-                bundleContext, versionService, firmwareUpgradeService, mdnsHostnameResolver, audioHTTPServer,
-                networkAddressService, serialPortProvider, mdnsClient, null);
+                new KeySequentialExecutor(packetProcessorExecutor), eventPublisher, null, null, bundleContext,
+                versionService, firmwareUpgradeService, mdnsHostnameResolver, audioHTTPServer, networkAddressService,
+                null, serialPortProvider);
         setField("config", new ESPHomeConfiguration());
         setField("frameHelper", frameHelper);
         handler.setCallback(callback);
