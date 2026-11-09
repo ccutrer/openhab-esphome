@@ -18,9 +18,12 @@ import java.net.UnknownHostException;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.*;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import org.apache.commons.lang3.StringUtils;
 import org.eclipse.jdt.annotation.NonNull;
@@ -62,7 +65,7 @@ import no.seime.openhab.binding.esphome.internal.audio.ESPHomeVoiceAssistantAudi
 import no.seime.openhab.binding.esphome.internal.audio.VoiceAssistantFeature;
 import no.seime.openhab.binding.esphome.internal.bluetooth.ESPHomeBluetoothProxyHandler;
 import no.seime.openhab.binding.esphome.internal.comm.*;
-import no.seime.openhab.binding.esphome.internal.discovery.ESPHomeMDNSHostnameResolver;
+import no.seime.openhab.binding.esphome.internal.discovery.ESPHomeHostnameResolver;
 import no.seime.openhab.binding.esphome.internal.handler.action.AbstractESPHomeThingAction;
 import no.seime.openhab.binding.esphome.internal.handler.action.DynamicThingActionsGenerator;
 import no.seime.openhab.binding.esphome.internal.handler.action.FirmwareUpgradeAction;
@@ -104,6 +107,7 @@ public class ESPHomeHandler extends BaseThingHandler implements CommunicationLis
     private final List<Channel> dynamicChannels = new CopyOnWriteArrayList<>();
     private final ESPHomeEventSubscriber eventSubscriber;
     private final MonitoredCompositeExecutorService executorService;
+    private final ExecutorService backgroundExecutor;
     private final KeySequentialExecutor packetProcessor;
     private final EventPublisher eventPublisher;
     @Nullable
@@ -113,7 +117,7 @@ public class ESPHomeHandler extends BaseThingHandler implements CommunicationLis
     private final BundleContext bundleContext;
     private final ESPHomeVersionService versionService;
     private final FirmwareUpgradeService firmwareUpgradeService;
-    private final ESPHomeMDNSHostnameResolver mdnsHostnameResolver;
+    private final ESPHomeHostnameResolver hostnameResolver;
     private final AudioHTTPServer audioHTTPServer;
     private final NetworkAddressService networkAddressService;
     private final ESPHomeSerialPortProvider serialPortProvider;
@@ -163,12 +167,12 @@ public class ESPHomeHandler extends BaseThingHandler implements CommunicationLis
     public ESPHomeHandler(Thing thing, ConnectionSelector connectionSelector,
             ESPChannelTypeProvider dynamicChannelTypeProvider, ESPStateDescriptionProvider stateDescriptionProvider,
             ESPHomeEventSubscriber eventSubscriber, MonitoredCompositeExecutorService executorService,
-            KeySequentialExecutor packetProcessor, EventPublisher eventPublisher,
+            ExecutorService backgroundExecutor, KeySequentialExecutor packetProcessor, EventPublisher eventPublisher,
             @Nullable String bindingPropertyDefaultEncryptionKey, @Nullable String bindingPropertyAudioBaseUrl,
             BundleContext bundleContext, ESPHomeVersionService versionService,
-            FirmwareUpgradeService firmwareUpgradeService, ESPHomeMDNSHostnameResolver mdnsHostnameResolver,
+            FirmwareUpgradeService firmwareUpgradeService, ESPHomeHostnameResolver hostnameResolver,
             AudioHTTPServer audioHTTPServer, NetworkAddressService networkAddressService,
-            @Nullable ManagedThingProvider managedThingProvider, ESPHomeSerialPortProvider serialPortProvider) {
+            ESPHomeSerialPortProvider serialPortProvider, @Nullable ManagedThingProvider managedThingProvider) {
         super(thing);
         this.managedThingProvider = managedThingProvider;
         this.connectionSelector = connectionSelector;
@@ -177,6 +181,7 @@ public class ESPHomeHandler extends BaseThingHandler implements CommunicationLis
         logPrefix = thing.getUID().getId();
         this.eventSubscriber = eventSubscriber;
         this.executorService = executorService;
+        this.backgroundExecutor = backgroundExecutor;
         this.packetProcessor = packetProcessor;
         this.eventPublisher = eventPublisher;
         this.bindingPropertyDefaultEncryptionKey = bindingPropertyDefaultEncryptionKey;
@@ -184,7 +189,7 @@ public class ESPHomeHandler extends BaseThingHandler implements CommunicationLis
         this.bundleContext = bundleContext;
         this.versionService = versionService;
         this.firmwareUpgradeService = firmwareUpgradeService;
-        this.mdnsHostnameResolver = mdnsHostnameResolver;
+        this.hostnameResolver = hostnameResolver;
         this.audioHTTPServer = audioHTTPServer;
         this.networkAddressService = networkAddressService;
         this.serialPortProvider = serialPortProvider;
@@ -478,74 +483,104 @@ public class ESPHomeHandler extends BaseThingHandler implements CommunicationLis
 
                 String hostname = config.hostname;
                 int port = config.port;
-                ResolvedConnectionTarget connectionTarget = resolveConnectionTarget(hostname);
-                resolvedIpAddressForCurrentConnection = connectionTarget.cacheLastKnownIpAddress
-                        ? connectionTarget.ipAddress
-                        : null;
-                applyLastKnownIpAddressPolicy(connectionTarget);
-
-                logger.info("[{}] Trying to connect to {}:{}", logPrefix, connectionTarget.logTarget(), port);
-                if (config.deepSleep && getThing().getStatus() != ThingStatus.ONLINE) {
-                    updateStatus(ThingStatus.UNKNOWN, ThingStatusDetail.NONE,
-                            String.format("Connecting to %s:%d", connectionTarget.statusTarget(), port));
+                ResolvedConnectionTarget literalConnectionTarget = resolveLiteralConnectionTarget(hostname);
+                if (literalConnectionTarget != null) {
+                    connectToResolvedTarget(literalConnectionTarget, port);
+                    return;
                 }
 
-                provisioningConnection = false;
-                provisioningKeyPending = false;
-                String encryptionKey = config.encryptionKey;
-                if (StringUtils.isBlank(encryptionKey)) {
-                    encryptionKey = StringUtils.defaultString(bindingPropertyDefaultEncryptionKey);
-                }
-                if (StringUtils.isBlank(encryptionKey)) {
-                    if (managedThingProvider == null || managedThingProvider.get(thing.getUID()) == null) {
-                        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
-                                "No encryption key configured. Please set 'encryptionKey' in thing configuration or a default one in binding configuration");
-                        return;
-                    }
-                    encryptionKey = PROVISIONING_KEY;
-                    provisioningConnection = true;
-                } else {
-                    rejectProvisioningKey(encryptionKey);
-                }
-
-                frameHelper = new EncryptedFrameHelper(connectionSelector, createConnectionListener(generation),
-                        encryptionKey, config.deviceId, logPrefix, packetProcessor);
-
-                frameHelper.connect(connectionTarget.connectHost, port);
-
-                cancelConnectionTimeoutWatchdog();
-                connectionTimeoutFuture = executorService.schedule(() -> {
-                    logger.warn("[{}] Connection attempt timed out after {} seconds.", logPrefix,
-                            config.connectTimeout);
-                    handleDisconnection(ThingStatusDetail.COMMUNICATION_ERROR, "Connection attempt timed out");
-                }, config.connectTimeout, TimeUnit.SECONDS, String.format("[%s] Connection watchdog", logPrefix));
-
+                hostnameResolver.resolve(hostname, getResolveTimeoutSeconds())
+                        .whenComplete((address, error) -> backgroundExecutor
+                                .execute(() -> completeResolvedConnect(generation, hostname, port, address, error)));
             } catch (ProtocolException e) {
-                Throwable cause = e.getCause();
-                String message = e.getMessage();
-                if (cause != null) {
-                    if (message == null) {
-                        message = cause.getMessage();
-                    } else {
-                        String causeMessage = cause.getMessage();
-                        if (causeMessage != null) {
-                            message += " (" + cause.getMessage() + ")";
-                        }
-                    }
-                }
-                connectionGeneration++;
-                logger.warn("[{}] Error initial connection: {}", logPrefix, message);
-                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, message);
-                connectionState = ConnectionState.UNINITIALIZED;
-                resolvedIpAddressForCurrentConnection = null;
+                handleInitialConnectionError(e);
+            } catch (RuntimeException e) {
+                handleInitialConnectionError(
+                        new ProtocolAPIError("Error resolving hostname '" + config.hostname + "'", e));
+            }
+        }
+    }
 
-                if (config.deepSleep) {
-                    logger.info("[{}] Error connecting to device in deep sleep mode. Will wait for next wakeup",
-                            logPrefix, e);
-                } else {
-                    scheduleConnect(exponentialBackoff.getNextDelay());
+    private void completeResolvedConnect(long generation, String hostname, int port,
+            @Nullable InetAddress resolvedAddress, @Nullable Throwable resolutionError) {
+        synchronized (connectionStateLock) {
+            if (disposed || generation != connectionGeneration || connectionState != ConnectionState.CONNECTING) {
+                return;
+            }
+            try {
+                ResolvedConnectionTarget connectionTarget = resolutionError == null && resolvedAddress != null
+                        ? createResolvedConnectionTarget(hostname, resolvedAddress)
+                        : resolveFailedConnectionTarget(hostname, resolutionError);
+                connectToResolvedTarget(connectionTarget, port);
+            } catch (ProtocolException e) {
+                handleInitialConnectionError(e);
+            }
+        }
+    }
+
+    private void connectToResolvedTarget(ResolvedConnectionTarget connectionTarget, int port) throws ProtocolException {
+        resolvedIpAddressForCurrentConnection = connectionTarget.cacheLastKnownIpAddress ? connectionTarget.ipAddress
+                : null;
+        applyLastKnownIpAddressPolicy(connectionTarget);
+
+        logger.info("[{}] Trying to connect to {}:{}", logPrefix, connectionTarget.logTarget(), port);
+        if (config.deepSleep && getThing().getStatus() != ThingStatus.ONLINE) {
+            updateStatus(ThingStatus.UNKNOWN, ThingStatusDetail.NONE,
+                    String.format("Connecting to %s:%d", connectionTarget.statusTarget(), port));
+        }
+
+        provisioningConnection = false;
+        provisioningKeyPending = false;
+        String encryptionKey = config.encryptionKey;
+        if (StringUtils.isBlank(encryptionKey)) {
+            encryptionKey = StringUtils.defaultString(bindingPropertyDefaultEncryptionKey);
+        }
+        if (StringUtils.isBlank(encryptionKey)) {
+            if (managedThingProvider == null || managedThingProvider.get(thing.getUID()) == null) {
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
+                        "No encryption key configured. Please set 'encryptionKey' in thing configuration or a default one in binding configuration");
+                return;
+            }
+            encryptionKey = PROVISIONING_KEY;
+            provisioningConnection = true;
+        } else {
+            rejectProvisioningKey(encryptionKey);
+        }
+
+        frameHelper = new EncryptedFrameHelper(connectionSelector, createConnectionListener(connectionGeneration),
+                encryptionKey, config.deviceId, logPrefix, packetProcessor);
+
+        frameHelper.connect(connectionTarget.connectHost, port);
+
+        cancelConnectionTimeoutWatchdog();
+        connectionTimeoutFuture = executorService.schedule(() -> {
+            logger.warn("[{}] Connection attempt timed out after {} seconds.", logPrefix, config.connectTimeout);
+            handleDisconnection(ThingStatusDetail.COMMUNICATION_ERROR, "Connection attempt timed out");
+        }, config.connectTimeout, TimeUnit.SECONDS, String.format("[%s] Connection watchdog", logPrefix));
+    }
+
+    private void handleInitialConnectionError(ProtocolException e) {
+        connectionGeneration++;
+        Throwable cause = e.getCause();
+        String message = e.getMessage();
+        if (cause != null) {
+            if (message == null) {
+                message = cause.getMessage();
+            } else {
+                String causeMessage = cause.getMessage();
+                if (causeMessage != null) {
+                    message += " (" + cause.getMessage() + ")";
                 }
             }
+        }
+        logger.warn("[{}] Error initial connection: {}", logPrefix, message);
+        updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, message);
+        connectionState = ConnectionState.UNINITIALIZED;
+        resolvedIpAddressForCurrentConnection = null;
+        if (config.deepSleep) {
+            logger.info("[{}] Error connecting to device in deep sleep mode. Will wait for next wakeup", logPrefix, e);
+        } else {
+            scheduleConnect(exponentialBackoff.getNextDelay());
         }
     }
 
@@ -1232,27 +1267,33 @@ public class ESPHomeHandler extends BaseThingHandler implements CommunicationLis
         }
     }
 
-    private ResolvedConnectionTarget resolveConnectionTarget(String configuredHostname) throws ProtocolAPIError {
+    private @Nullable ResolvedConnectionTarget resolveLiteralConnectionTarget(String configuredHostname) {
         if (InetAddresses.isInetAddress(configuredHostname)) {
             InetAddress configuredAddress = InetAddresses.forString(configuredHostname);
             String configuredIpAddress = configuredAddress.getHostAddress();
             return new ResolvedConnectionTarget(configuredIpAddress, configuredIpAddress, configuredHostname,
                     configuredHostname, false);
         }
-
-        Optional<String> mdnsIp = mdnsHostnameResolver.resolve(configuredHostname);
+        Optional<String> mdnsIp = hostnameResolver.resolveCached(configuredHostname);
         if (mdnsIp.isPresent()) {
             String ip = mdnsIp.get();
             logger.debug("[{}] Resolved '{}' via mDNS cache to {}", logPrefix, configuredHostname, ip);
             return new ResolvedConnectionTarget(ip, ip, configuredHostname + " (mDNS " + ip + ")", configuredHostname,
                     true);
         }
+        return null;
+    }
 
-        try {
-            InetAddress resolvedAddress = InetAddress.getByName(configuredHostname);
-            return new ResolvedConnectionTarget(resolvedAddress.getHostAddress(), resolvedAddress.getHostAddress(),
-                    configuredHostname, configuredHostname, true);
-        } catch (UnknownHostException e) {
+    private ResolvedConnectionTarget createResolvedConnectionTarget(String configuredHostname,
+            InetAddress resolvedAddress) {
+        return new ResolvedConnectionTarget(resolvedAddress.getHostAddress(), resolvedAddress.getHostAddress(),
+                configuredHostname, configuredHostname, true);
+    }
+
+    private ResolvedConnectionTarget resolveFailedConnectionTarget(String configuredHostname,
+            @Nullable Throwable resolutionError) throws ProtocolAPIError {
+        Throwable error = unwrapCompletionException(resolutionError);
+        if (error instanceof UnknownHostException e) {
             String lastKnownIpAddress = StringUtils
                     .trimToNull(thing.getProperties().get(PROPERTY_LAST_KNOWN_IP_ADDRESS));
             if (lastKnownIpAddress != null && InetAddresses.isInetAddress(lastKnownIpAddress)) {
@@ -1262,7 +1303,31 @@ public class ESPHomeHandler extends BaseThingHandler implements CommunicationLis
                         configuredHostname + " (cached " + lastKnownIpAddress + ")", lastKnownIpAddress, true);
             }
             throw new ProtocolAPIError("Failed to resolve hostname '" + configuredHostname + "'", e);
+        } else if (error instanceof TimeoutException e) {
+            throw new ProtocolAPIError("Timed out resolving hostname '" + configuredHostname + "' after "
+                    + getResolveTimeoutSeconds() + " seconds", e);
+        } else if (error instanceof InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new ProtocolAPIError("Interrupted resolving hostname '" + configuredHostname + "'", e);
+        } else if (error instanceof ProtocolAPIError e) {
+            throw e;
         }
+        if (error == null) {
+            throw new ProtocolAPIError("Error resolving hostname '" + configuredHostname + "'");
+        }
+        throw new ProtocolAPIError("Error resolving hostname '" + configuredHostname + "'", error);
+    }
+
+    private @Nullable Throwable unwrapCompletionException(@Nullable Throwable error) {
+        while (error instanceof CompletionException && error.getCause() != null) {
+            error = error.getCause();
+        }
+        return error;
+    }
+
+    private int getResolveTimeoutSeconds() {
+        ESPHomeConfiguration currentConfig = config;
+        return currentConfig != null ? currentConfig.resolveTimeout : new ESPHomeConfiguration().resolveTimeout;
     }
 
     private void applyLastKnownIpAddressPolicy(ResolvedConnectionTarget connectionTarget) {
@@ -1395,6 +1460,10 @@ public class ESPHomeHandler extends BaseThingHandler implements CommunicationLis
     private void scheduleConnect(int delaySeconds) {
         synchronized (connectionStateLock) {
             cancelConnectFuture();
+            if (delaySeconds == 0) {
+                connect();
+                return;
+            }
             connectFuture = executorService.schedule(this::connect, delaySeconds, TimeUnit.SECONDS,
                     String.format("[%s] Connect", logPrefix), 7000);
         }

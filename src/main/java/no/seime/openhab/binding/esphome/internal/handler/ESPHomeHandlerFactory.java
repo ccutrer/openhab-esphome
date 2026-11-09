@@ -21,6 +21,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.bluetooth.BluetoothAdapter;
 import org.openhab.core.audio.AudioHTTPServer;
+import org.openhab.core.common.ThreadPoolManager;
 import org.openhab.core.config.discovery.inbox.Inbox;
 import org.openhab.core.events.EventPublisher;
 import org.openhab.core.net.NetworkAddressService;
@@ -44,7 +45,7 @@ import no.seime.openhab.binding.esphome.internal.FirmwareUpgradeService;
 import no.seime.openhab.binding.esphome.internal.MonitoredCompositeExecutorService;
 import no.seime.openhab.binding.esphome.internal.bluetooth.ESPHomeBluetoothProxyHandler;
 import no.seime.openhab.binding.esphome.internal.comm.ConnectionSelector;
-import no.seime.openhab.binding.esphome.internal.discovery.ESPHomeMDNSHostnameResolver;
+import no.seime.openhab.binding.esphome.internal.discovery.ESPHomeHostnameResolver;
 import no.seime.openhab.binding.esphome.internal.message.statesubscription.ESPHomeEventSubscriber;
 import no.seime.openhab.binding.esphome.internal.serial.ESPHomeSerialPortProvider;
 
@@ -70,7 +71,7 @@ public class ESPHomeHandlerFactory extends BaseThingHandlerFactory {
     private final ESPChannelTypeProvider dynamicChannelTypeProvider;
     private final ESPStateDescriptionProvider stateDescriptionProvider;
     private final ESPHomeEventSubscriber eventSubscriber;
-    private final ESPHomeMDNSHostnameResolver mdnsHostnameResolver;
+    private final ESPHomeHostnameResolver hostnameResolver;
 
     private final ThingRegistry thingRegistry;
     private final Inbox inbox;
@@ -80,6 +81,7 @@ public class ESPHomeHandlerFactory extends BaseThingHandlerFactory {
     private final NetworkAddressService networkAddressService;
     private MonitoredCompositeExecutorService scheduler;
     private final ESPHomeSerialPortProvider serialPortProvider;
+    private final ExecutorService backgroundExecutor = ThreadPoolManager.getPool("esphome");
     private KeySequentialExecutor packetExecutor;
     private ConnectionSelector connectionSelector;
     private ESPHomeVersionService versionService;
@@ -91,7 +93,7 @@ public class ESPHomeHandlerFactory extends BaseThingHandlerFactory {
     public ESPHomeHandlerFactory(@Reference ESPChannelTypeProvider dynamicChannelTypeProvider,
             @Reference ESPStateDescriptionProvider stateDescriptionProvider,
             @Reference ESPHomeEventSubscriber eventSubscriber, @Reference ThingRegistry thingRegistry,
-            @Reference EventPublisher eventPublisher, @Reference ESPHomeMDNSHostnameResolver mdnsHostnameResolver,
+            @Reference EventPublisher eventPublisher, @Reference ESPHomeHostnameResolver hostnameResolver,
             @Reference AudioHTTPServer audioHTTPServer, @Reference NetworkAddressService networkAddressService,
             @Reference Inbox inbox, @Reference ManagedThingProvider managedThingProvider,
             @Reference ESPHomeSerialPortProvider serialPortProvider) {
@@ -103,7 +105,7 @@ public class ESPHomeHandlerFactory extends BaseThingHandlerFactory {
         this.thingRegistry = thingRegistry;
         this.inbox = inbox;
         this.eventPublisher = eventPublisher;
-        this.mdnsHostnameResolver = mdnsHostnameResolver;
+        this.hostnameResolver = hostnameResolver;
         this.audioHTTPServer = audioHTTPServer;
         this.networkAddressService = networkAddressService;
         this.serialPortProvider = serialPortProvider;
@@ -118,10 +120,10 @@ public class ESPHomeHandlerFactory extends BaseThingHandlerFactory {
         }
         if (BindingConstants.THING_TYPE_DEVICE.equals(thingTypeUID)) {
             ESPHomeHandler handler = new ESPHomeHandler(thing, connectionSelector, dynamicChannelTypeProvider,
-                    stateDescriptionProvider, eventSubscriber, scheduler, packetExecutor, eventPublisher,
-                    bindingPropertyDefaultEncryptionKey, bindingPropertyAudioBaseUrl, getBundleContext(),
-                    versionService, firmwareUpgradeService, mdnsHostnameResolver, audioHTTPServer,
-                    networkAddressService, managedThingProvider, serialPortProvider);
+                    stateDescriptionProvider, eventSubscriber, scheduler, backgroundExecutor, packetExecutor,
+                    eventPublisher, bindingPropertyDefaultEncryptionKey, bindingPropertyAudioBaseUrl,
+                    getBundleContext(), versionService, firmwareUpgradeService, hostnameResolver, audioHTTPServer,
+                    networkAddressService, serialPortProvider, managedThingProvider);
             esphomeHandlers.put(thing.getUID(), handler);
             return handler;
         } else if (BindingConstants.THING_TYPE_BLE_PROXY.equals(thingTypeUID)) {

@@ -9,6 +9,7 @@ import static org.mockito.Mockito.*;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.net.UnknownHostException;
 import java.util.Base64;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
@@ -62,7 +63,7 @@ import no.seime.openhab.binding.esphome.internal.comm.CommunicationError;
 import no.seime.openhab.binding.esphome.internal.comm.ConnectionSelector;
 import no.seime.openhab.binding.esphome.internal.comm.EncryptedFrameHelper;
 import no.seime.openhab.binding.esphome.internal.comm.ProtocolAPIError;
-import no.seime.openhab.binding.esphome.internal.discovery.ESPHomeMDNSHostnameResolver;
+import no.seime.openhab.binding.esphome.internal.discovery.ESPHomeHostnameResolver;
 import no.seime.openhab.binding.esphome.internal.message.statesubscription.ESPHomeEventSubscriber;
 import no.seime.openhab.binding.esphome.internal.message.statesubscription.EventSubscription;
 import no.seime.openhab.binding.esphome.internal.serial.ESPHomeSerialPortProvider;
@@ -83,7 +84,7 @@ class ESPHomeHandlerLastKnownIpAddressTest {
     @Mock
     private ThingHandlerCallback callback;
     @Mock
-    private ESPHomeMDNSHostnameResolver mdnsHostnameResolver;
+    private ESPHomeHostnameResolver hostnameResolver;
     @Mock
     private EncryptedFrameHelper frameHelper;
     @Mock
@@ -114,9 +115,9 @@ class ESPHomeHandlerLastKnownIpAddressTest {
         FirmwareUpgradeService firmwareUpgradeService = Mockito.mock(FirmwareUpgradeService.class);
 
         handler = new ESPHomeHandler(thing, new ConnectionSelector(), channelTypeProvider, stateDescriptionProvider,
-                eventSubscriber, executor, new KeySequentialExecutor(packetProcessorExecutor), eventPublisher, null,
-                null, bundleContext, versionService, firmwareUpgradeService, mdnsHostnameResolver, audioHTTPServer,
-                networkAddressService, managedThingProvider, serialPortProvider);
+                eventSubscriber, executor, packetProcessorExecutor, new KeySequentialExecutor(packetProcessorExecutor),
+                eventPublisher, null, null, bundleContext, versionService, firmwareUpgradeService, hostnameResolver,
+                audioHTTPServer, networkAddressService, serialPortProvider, managedThingProvider);
 
         setField("config", new ESPHomeConfiguration());
         setField("frameHelper", frameHelper);
@@ -134,7 +135,8 @@ class ESPHomeHandlerLastKnownIpAddressTest {
     void fallsBackToCachedIpAddressWhenHostnameResolutionFails() throws Exception {
         thing.setProperties(Map.of(ESPHomeHandler.PROPERTY_LAST_KNOWN_IP_ADDRESS, "127.0.0.1"));
 
-        Object target = invokeMethod("resolveConnectionTarget", new Class<?>[] { String.class }, "device.invalid");
+        Object target = invokeMethod("resolveFailedConnectionTarget", new Class<?>[] { String.class, Throwable.class },
+                "device.invalid", new UnknownHostException("device.invalid"));
 
         assertEquals("127.0.0.1", invokeRecordAccessor(target, "connectHost"));
         assertEquals("127.0.0.1", invokeRecordAccessor(target, "ipAddress"));
@@ -144,7 +146,8 @@ class ESPHomeHandlerLastKnownIpAddressTest {
     void fallsBackToTrimmedCachedIpAddressWhenHostnameResolutionFails() throws Exception {
         thing.setProperties(Map.of(ESPHomeHandler.PROPERTY_LAST_KNOWN_IP_ADDRESS, " 127.0.0.1 "));
 
-        Object target = invokeMethod("resolveConnectionTarget", new Class<?>[] { String.class }, "device.invalid");
+        Object target = invokeMethod("resolveFailedConnectionTarget", new Class<?>[] { String.class, Throwable.class },
+                "device.invalid", new UnknownHostException("device.invalid"));
 
         assertEquals("127.0.0.1", invokeRecordAccessor(target, "connectHost"));
         assertEquals("127.0.0.1", invokeRecordAccessor(target, "ipAddress"));
@@ -153,7 +156,8 @@ class ESPHomeHandlerLastKnownIpAddressTest {
     @Test
     void throwsWhenHostnameResolutionFailsWithoutCachedIpAddress() {
         Exception error = assertThrows(Exception.class,
-                () -> invokeMethod("resolveConnectionTarget", new Class<?>[] { String.class }, "device.invalid"));
+                () -> invokeMethod("resolveFailedConnectionTarget", new Class<?>[] { String.class, Throwable.class },
+                        "device.invalid", new UnknownHostException("device.invalid")));
 
         Throwable cause = error.getCause();
         assertNotNull(cause);
@@ -166,7 +170,8 @@ class ESPHomeHandlerLastKnownIpAddressTest {
         thing.setProperties(Map.of(ESPHomeHandler.PROPERTY_LAST_KNOWN_IP_ADDRESS, " not-an-ip "));
 
         Exception error = assertThrows(Exception.class,
-                () -> invokeMethod("resolveConnectionTarget", new Class<?>[] { String.class }, "device.invalid"));
+                () -> invokeMethod("resolveFailedConnectionTarget", new Class<?>[] { String.class, Throwable.class },
+                        "device.invalid", new UnknownHostException("device.invalid")));
 
         Throwable cause = error.getCause();
         assertNotNull(cause);
@@ -178,7 +183,7 @@ class ESPHomeHandlerLastKnownIpAddressTest {
     void doesNotUseCachedIpAddressWhenConfiguredHostnameIsLiteralIp() throws Exception {
         thing.setProperties(Map.of(ESPHomeHandler.PROPERTY_LAST_KNOWN_IP_ADDRESS, "127.0.0.1"));
 
-        Object target = invokeMethod("resolveConnectionTarget", new Class<?>[] { String.class }, "192.0.2.55");
+        Object target = invokeMethod("resolveLiteralConnectionTarget", new Class<?>[] { String.class }, "192.0.2.55");
 
         assertEquals("192.0.2.55", invokeRecordAccessor(target, "connectHost"));
         assertEquals("192.0.2.55", invokeRecordAccessor(target, "ipAddress"));
@@ -560,6 +565,25 @@ class ESPHomeHandlerLastKnownIpAddressTest {
         listener.onParseError(CommunicationError.PACKET_ERROR);
         listener.onEndOfStream("closed");
         verifyNoInteractions(frameHelper, callback);
+    }
+
+    @Test
+    void staleHostnameResolutionCannotStartReplacementConnection() throws Exception {
+        Field stateField = ESPHomeHandler.class.getDeclaredField("connectionState");
+        for (Object state : stateField.getType().getEnumConstants()) {
+            if ("CONNECTING".equals(state.toString())) {
+                setField("connectionState", state);
+            }
+        }
+        setField("connectionGeneration", 2L);
+
+        invokeMethod("completeResolvedConnect",
+                new Class<?>[] { long.class, String.class, int.class, java.net.InetAddress.class, Throwable.class }, 1L,
+                "device.local", 6053, java.net.InetAddress.getByName("127.0.0.1"), null);
+
+        verifyNoInteractions(frameHelper, callback);
+        assertSame(frameHelper, getField("frameHelper"));
+        assertEquals(2L, getField("connectionGeneration"));
     }
 
     @Test

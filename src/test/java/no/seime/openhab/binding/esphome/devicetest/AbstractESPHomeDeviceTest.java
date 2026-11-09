@@ -1,13 +1,16 @@
 package no.seime.openhab.binding.esphome.devicetest;
 
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.when;
 
 import java.io.File;
+import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
 
@@ -40,7 +43,7 @@ import com.jano7.executor.KeySequentialExecutor;
 import no.seime.openhab.binding.esphome.deviceutil.ESPHomeDeviceRunner;
 import no.seime.openhab.binding.esphome.internal.*;
 import no.seime.openhab.binding.esphome.internal.comm.ConnectionSelector;
-import no.seime.openhab.binding.esphome.internal.discovery.ESPHomeMDNSHostnameResolver;
+import no.seime.openhab.binding.esphome.internal.discovery.ESPHomeHostnameResolver;
 import no.seime.openhab.binding.esphome.internal.handler.ESPChannelTypeProvider;
 import no.seime.openhab.binding.esphome.internal.handler.ESPHomeHandler;
 import no.seime.openhab.binding.esphome.internal.handler.ESPStateDescriptionProvider;
@@ -67,7 +70,7 @@ public abstract class AbstractESPHomeDeviceTest {
     protected @Mock ESPChannelTypeProvider channelTypeProvider;
     protected @Mock ESPStateDescriptionProvider stateDescriptionProvider;
     protected @Mock BundleContext bundleContext;
-    protected @Mock ESPHomeMDNSHostnameResolver mdnsHostnameResolver;
+    protected @Mock ESPHomeHostnameResolver hostnameResolver;
     protected @Mock AudioHTTPServer audioHTTPServer;
     protected @Mock NetworkAddressService networkAddressService;
     protected ESPHomeSerialPortProvider serialPortProvider;
@@ -97,6 +100,8 @@ public abstract class AbstractESPHomeDeviceTest {
         when(itemRegistry.getItems()).thenReturn(registryItems);
         eventSubscriber = new ESPHomeEventSubscriber(thingRegistry, itemRegistry);
         when(networkAddressService.getPrimaryIpv4HostAddress()).thenReturn("127.0.0.1");
+        when(hostnameResolver.resolve(eq("localhost"), anyInt()))
+                .thenReturn(CompletableFuture.completedFuture(InetAddress.getByName("127.0.0.1")));
 
         ESPHomeVersionService versionService = Mockito.mock(ESPHomeVersionService.class);
         when(versionService.getLatestVersion()).thenReturn("2024.3.0");
@@ -112,9 +117,9 @@ public abstract class AbstractESPHomeDeviceTest {
         serialPortProvider = new ESPHomeSerialPortProvider();
 
         thingHandler = new ESPHomeHandler(thing, selector, channelTypeProvider, stateDescriptionProvider,
-                eventSubscriber, executor, new KeySequentialExecutor(executor), eventPublisher, null, null,
-                bundleContext, versionService, firmwareUpgradeService, mdnsHostnameResolver, audioHTTPServer,
-                networkAddressService, null, serialPortProvider);
+                eventSubscriber, executor, executor, new KeySequentialExecutor(executor), eventPublisher, null, null,
+                bundleContext, versionService, firmwareUpgradeService, hostnameResolver, audioHTTPServer,
+                networkAddressService, serialPortProvider, null);
         thingHandlerCallback = Mockito.mock(ThingHandlerCallback.class);
         thingHandler.setCallback(thingHandlerCallback);
 

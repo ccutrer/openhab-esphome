@@ -36,6 +36,8 @@ public class ESPHomeConfiguration {
 
     public int connectTimeout = 60;
 
+    public int resolveTimeout = 30;
+
     public String encryptionKey;
 
     public String deviceId;

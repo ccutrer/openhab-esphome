@@ -79,7 +79,7 @@ import no.seime.openhab.binding.esphome.internal.audio.MediaPlayerFeature;
 import no.seime.openhab.binding.esphome.internal.audio.VoiceAssistantFeature;
 import no.seime.openhab.binding.esphome.internal.comm.ConnectionSelector;
 import no.seime.openhab.binding.esphome.internal.comm.EncryptedFrameHelper;
-import no.seime.openhab.binding.esphome.internal.discovery.ESPHomeMDNSHostnameResolver;
+import no.seime.openhab.binding.esphome.internal.discovery.ESPHomeHostnameResolver;
 import no.seime.openhab.binding.esphome.internal.message.statesubscription.ESPHomeEventSubscriber;
 import no.seime.openhab.binding.esphome.internal.serial.ESPHomeSerialPortProvider;
 
@@ -114,7 +114,7 @@ class ESPHomeHandlerAudioServicesTest {
     @Mock
     private FirmwareUpgradeService firmwareUpgradeService;
     @Mock
-    private ESPHomeMDNSHostnameResolver mdnsHostnameResolver;
+    private ESPHomeHostnameResolver hostnameResolver;
     @Mock
     private ESPHomeSerialPortProvider serialPortProvider;
 
@@ -137,9 +137,9 @@ class ESPHomeHandlerAudioServicesTest {
 
         handler = new ESPHomeHandler(new ThingImpl(BindingConstants.THING_TYPE_DEVICE, "device"),
                 new ConnectionSelector(), channelTypeProvider, stateDescriptionProvider, eventSubscriber, executor,
-                new KeySequentialExecutor(packetProcessorExecutor), eventPublisher, null, null, bundleContext,
-                versionService, firmwareUpgradeService, mdnsHostnameResolver, audioHTTPServer, networkAddressService,
-                null, serialPortProvider);
+                packetProcessorExecutor, new KeySequentialExecutor(packetProcessorExecutor), eventPublisher, null, null,
+                bundleContext, versionService, firmwareUpgradeService, hostnameResolver, audioHTTPServer,
+                networkAddressService, serialPortProvider, null);
         handler.setCallback(callback);
         setField("config", new ESPHomeConfiguration());
         setField("connectionState", enumValue(getFieldType("connectionState"), "CONNECTED"));
