@@ -28,7 +28,7 @@ import com.jano7.executor.KeySequentialExecutor;
 import no.seime.openhab.binding.esphome.internal.*;
 import no.seime.openhab.binding.esphome.internal.comm.ConnectionSelector;
 import no.seime.openhab.binding.esphome.internal.comm.EncryptedFrameHelper;
-import no.seime.openhab.binding.esphome.internal.discovery.ESPHomeMDNSHostnameResolver;
+import no.seime.openhab.binding.esphome.internal.discovery.ESPHomeHostnameResolver;
 import no.seime.openhab.binding.esphome.internal.message.statesubscription.ESPHomeEventSubscriber;
 import no.seime.openhab.binding.esphome.internal.serial.ESPHomeSerialPortProvider;
 
@@ -48,7 +48,7 @@ abstract class AbstractESPHomeHandlerTest {
     @Mock
     protected ThingHandlerCallback callback;
     @Mock
-    protected ESPHomeMDNSHostnameResolver mdnsHostnameResolver;
+    protected ESPHomeHostnameResolver hostnameResolver;
     @Mock
     protected EncryptedFrameHelper frameHelper;
     @Mock
@@ -79,9 +79,9 @@ abstract class AbstractESPHomeHandlerTest {
         FirmwareUpgradeService firmwareUpgradeService = Mockito.mock(FirmwareUpgradeService.class);
 
         handler = new ESPHomeHandler(thing, new ConnectionSelector(), channelTypeProvider, stateDescriptionProvider,
-                eventSubscriber, executor, new KeySequentialExecutor(packetProcessorExecutor), eventPublisher, null,
-                null, bundleContext, versionService, firmwareUpgradeService, mdnsHostnameResolver, audioHTTPServer,
-                networkAddressService, managedThingProvider, serialPortProvider);
+                eventSubscriber, executor, packetProcessorExecutor, new KeySequentialExecutor(packetProcessorExecutor),
+                eventPublisher, null, null, bundleContext, versionService, firmwareUpgradeService, hostnameResolver,
+                audioHTTPServer, networkAddressService, serialPortProvider, managedThingProvider);
 
         setField("config", new ESPHomeConfiguration());
         setField("frameHelper", frameHelper);

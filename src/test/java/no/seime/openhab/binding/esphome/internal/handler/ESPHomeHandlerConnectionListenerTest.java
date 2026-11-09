@@ -76,12 +76,11 @@ class ESPHomeHandlerConnectionListenerTest extends AbstractESPHomeHandlerTest {
         listener.onEndOfStream("closed");
         verifyNoInteractions(frameHelper, callback);
 
-        MonitoredCompositeExecutorService monitoredExecutor = spy(executor);
-        setField("executorService", monitoredExecutor);
-        doReturn(mock(java.util.concurrent.ScheduledFuture.class)).when(monitoredExecutor).schedule(any(Runnable.class),
-                eq(0L), eq(java.util.concurrent.TimeUnit.SECONDS), contains("Connect"), eq(7000L));
+        configuration.hostname = "device.local";
+        when(hostnameResolver.resolve(eq(configuration.hostname), anyInt()))
+                .thenReturn(new java.util.concurrent.CompletableFuture<>());
         handler.onDeviceReappeared();
-        verify(monitoredExecutor).schedule(any(Runnable.class), eq(0L), eq(java.util.concurrent.TimeUnit.SECONDS),
-                contains("Connect"), eq(7000L));
+        verify(hostnameResolver).resolve(eq(configuration.hostname), anyInt());
+        assertEquals("CONNECTING", getField("connectionState").toString());
     }
 }

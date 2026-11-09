@@ -37,7 +37,7 @@ import no.seime.openhab.binding.esphome.internal.FirmwareUpgradeService;
 import no.seime.openhab.binding.esphome.internal.MonitoredCompositeExecutorService;
 import no.seime.openhab.binding.esphome.internal.comm.ConnectionSelector;
 import no.seime.openhab.binding.esphome.internal.comm.EncryptedFrameHelper;
-import no.seime.openhab.binding.esphome.internal.discovery.ESPHomeMDNSHostnameResolver;
+import no.seime.openhab.binding.esphome.internal.discovery.ESPHomeHostnameResolver;
 import no.seime.openhab.binding.esphome.internal.message.statesubscription.ESPHomeEventSubscriber;
 import no.seime.openhab.binding.esphome.internal.serial.ESPHomeSerialPortProvider;
 
@@ -62,7 +62,7 @@ class ESPHomeHandlerSerialProxyTest {
     @Mock
     private ESPHomeSerialPortProvider serialPortProvider;
     @Mock
-    private ESPHomeMDNSHostnameResolver mdnsHostnameResolver;
+    private ESPHomeHostnameResolver hostnameResolver;
     @Mock
     private ESPHomeVersionService versionService;
     @Mock
@@ -81,9 +81,9 @@ class ESPHomeHandlerSerialProxyTest {
         packetProcessorExecutor = Executors.newSingleThreadExecutor();
         handler = new ESPHomeHandler(new ThingImpl(BindingConstants.THING_TYPE_DEVICE, "device"),
                 new ConnectionSelector(), channelTypeProvider, stateDescriptionProvider, eventSubscriber, executor,
-                new KeySequentialExecutor(packetProcessorExecutor), eventPublisher, null, null, bundleContext,
-                versionService, firmwareUpgradeService, mdnsHostnameResolver, audioHTTPServer, networkAddressService,
-                null, serialPortProvider);
+                packetProcessorExecutor, new KeySequentialExecutor(packetProcessorExecutor), eventPublisher, null, null,
+                bundleContext, versionService, firmwareUpgradeService, hostnameResolver, audioHTTPServer,
+                networkAddressService, serialPortProvider, null);
         setField("config", new ESPHomeConfiguration());
         setField("frameHelper", frameHelper);
         handler.setCallback(callback);
