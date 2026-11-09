@@ -104,7 +104,7 @@ import no.seime.openhab.binding.esphome.internal.audio.VoiceAssistantFeature;
 import no.seime.openhab.binding.esphome.internal.comm.ConnectionSelector;
 import no.seime.openhab.binding.esphome.internal.comm.EncryptedFrameHelper;
 import no.seime.openhab.binding.esphome.internal.comm.ProtocolAPIError;
-import no.seime.openhab.binding.esphome.internal.discovery.ESPHomeMDNSHostnameResolver;
+import no.seime.openhab.binding.esphome.internal.discovery.ESPHomeHostnameResolver;
 import no.seime.openhab.binding.esphome.internal.message.statesubscription.ESPHomeEventSubscriber;
 import no.seime.openhab.binding.esphome.internal.serial.ESPHomeSerialPortProvider;
 
@@ -139,7 +139,7 @@ class ESPHomeHandlerAudioServicesTest {
     @Mock
     private FirmwareUpgradeService firmwareUpgradeService;
     @Mock
-    private ESPHomeMDNSHostnameResolver mdnsHostnameResolver;
+    private ESPHomeHostnameResolver mdnsHostnameResolver;
     @Mock
     private Bundle dialogProviderBundle;
 
@@ -177,7 +177,7 @@ class ESPHomeHandlerAudioServicesTest {
 
         handler = new ESPHomeHandler(new ThingImpl(BindingConstants.THING_TYPE_DEVICE, "device"),
                 new ConnectionSelector(), channelTypeProvider, stateDescriptionProvider, eventSubscriber, executor,
-                new KeySequentialExecutor(packetProcessorExecutor), eventPublisher, null, null, bundleContext,
+                executor, new KeySequentialExecutor(packetProcessorExecutor), eventPublisher, null, null, bundleContext,
                 versionService, firmwareUpgradeService, mdnsHostnameResolver, audioHTTPServer, networkAddressService,
                 null, serialPortProvider);
         handler.setCallback(callback);

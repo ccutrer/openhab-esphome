@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.*;
 
+import java.net.UnknownHostException;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
@@ -18,7 +19,8 @@ class ESPHomeHandlerLastKnownIpAddressTest extends AbstractESPHomeHandlerTest {
     void fallsBackToCachedIpAddressWhenHostnameResolutionFails() throws Exception {
         thing.setProperties(Map.of(ESPHomeHandler.PROPERTY_LAST_KNOWN_IP_ADDRESS, "127.0.0.1"));
 
-        Object target = invokeMethod("resolveConnectionTarget", new Class<?>[] { String.class }, "device.invalid");
+        Object target = invokeMethod("resolveFailedConnectionTarget", new Class<?>[] { String.class, Throwable.class },
+                "device.invalid", new UnknownHostException("device.invalid"));
 
         assertEquals("127.0.0.1", invokeRecordAccessor(target, "connectHost"));
         assertEquals("127.0.0.1", invokeRecordAccessor(target, "ipAddress"));
@@ -28,7 +30,8 @@ class ESPHomeHandlerLastKnownIpAddressTest extends AbstractESPHomeHandlerTest {
     void fallsBackToTrimmedCachedIpAddressWhenHostnameResolutionFails() throws Exception {
         thing.setProperties(Map.of(ESPHomeHandler.PROPERTY_LAST_KNOWN_IP_ADDRESS, " 127.0.0.1 "));
 
-        Object target = invokeMethod("resolveConnectionTarget", new Class<?>[] { String.class }, "device.invalid");
+        Object target = invokeMethod("resolveFailedConnectionTarget", new Class<?>[] { String.class, Throwable.class },
+                "device.invalid", new UnknownHostException("device.invalid"));
 
         assertEquals("127.0.0.1", invokeRecordAccessor(target, "connectHost"));
         assertEquals("127.0.0.1", invokeRecordAccessor(target, "ipAddress"));
@@ -37,7 +40,8 @@ class ESPHomeHandlerLastKnownIpAddressTest extends AbstractESPHomeHandlerTest {
     @Test
     void throwsWhenHostnameResolutionFailsWithoutCachedIpAddress() {
         Exception error = assertThrows(Exception.class,
-                () -> invokeMethod("resolveConnectionTarget", new Class<?>[] { String.class }, "device.invalid"));
+                () -> invokeMethod("resolveFailedConnectionTarget", new Class<?>[] { String.class, Throwable.class },
+                        "device.invalid", new UnknownHostException("device.invalid")));
 
         Throwable cause = error.getCause();
         assertNotNull(cause);
@@ -50,7 +54,8 @@ class ESPHomeHandlerLastKnownIpAddressTest extends AbstractESPHomeHandlerTest {
         thing.setProperties(Map.of(ESPHomeHandler.PROPERTY_LAST_KNOWN_IP_ADDRESS, " not-an-ip "));
 
         Exception error = assertThrows(Exception.class,
-                () -> invokeMethod("resolveConnectionTarget", new Class<?>[] { String.class }, "device.invalid"));
+                () -> invokeMethod("resolveFailedConnectionTarget", new Class<?>[] { String.class, Throwable.class },
+                        "device.invalid", new UnknownHostException("device.invalid")));
 
         Throwable cause = error.getCause();
         assertNotNull(cause);
@@ -62,7 +67,7 @@ class ESPHomeHandlerLastKnownIpAddressTest extends AbstractESPHomeHandlerTest {
     void doesNotUseCachedIpAddressWhenConfiguredHostnameIsLiteralIp() throws Exception {
         thing.setProperties(Map.of(ESPHomeHandler.PROPERTY_LAST_KNOWN_IP_ADDRESS, "127.0.0.1"));
 
-        Object target = invokeMethod("resolveConnectionTarget", new Class<?>[] { String.class }, "192.0.2.55");
+        Object target = invokeMethod("resolveLiteralConnectionTarget", new Class<?>[] { String.class }, "192.0.2.55");
 
         assertEquals("192.0.2.55", invokeRecordAccessor(target, "connectHost"));
         assertEquals("192.0.2.55", invokeRecordAccessor(target, "ipAddress"));
