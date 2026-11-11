@@ -63,7 +63,6 @@ public class ESPHomeHandlerFactory extends BaseThingHandlerFactory {
     private static final Set<ThingTypeUID> SUPPORTED_THING_TYPES_UIDS = Set.of(BindingConstants.THING_TYPE_DEVICE,
             BindingConstants.THING_TYPE_BLE_PROXY, BindingConstants.THING_TYPE_DEVICE_BUILDER);
 
-    private @Nullable String bindingPropertyDefaultEncryptionKey;
     private @Nullable String bindingPropertyAudioBaseUrl;
 
     private final AtomicLong threadCounter = new AtomicLong(0);
@@ -121,9 +120,9 @@ public class ESPHomeHandlerFactory extends BaseThingHandlerFactory {
         if (BindingConstants.THING_TYPE_DEVICE.equals(thingTypeUID)) {
             ESPHomeHandler handler = new ESPHomeHandler(thing, connectionSelector, dynamicChannelTypeProvider,
                     stateDescriptionProvider, eventSubscriber, scheduler, backgroundExecutor, packetExecutor,
-                    eventPublisher, bindingPropertyDefaultEncryptionKey, bindingPropertyAudioBaseUrl,
-                    getBundleContext(), versionService, firmwareUpgradeService, hostnameResolver, audioHTTPServer,
-                    networkAddressService, serialPortProvider, managedThingProvider);
+                    eventPublisher, bindingPropertyAudioBaseUrl, getBundleContext(), versionService,
+                    firmwareUpgradeService, hostnameResolver, audioHTTPServer, networkAddressService,
+                    serialPortProvider, managedThingProvider);
             esphomeHandlers.put(thing.getUID(), handler);
             return handler;
         } else if (BindingConstants.THING_TYPE_BLE_PROXY.equals(thingTypeUID)) {
@@ -158,13 +157,6 @@ public class ESPHomeHandlerFactory extends BaseThingHandlerFactory {
                     logger.warn("Invalid maxPoolSize property '{}', using default {}", properties.get("maxPoolSize"),
                             maxPoolSize);
                 }
-            }
-
-            bindingPropertyDefaultEncryptionKey = StringUtils
-                    .trimToNull((String) properties.get("defaultEncryptionKey"));
-            if (bindingPropertyDefaultEncryptionKey != null) {
-                logger.info(
-                        "Found binding default encryption key for ESPHome devices, will use if not configured on thing");
             }
 
             bindingPropertyAudioBaseUrl = StringUtils.trimToNull((String) properties.get("audioBaseUrl"));

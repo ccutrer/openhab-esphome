@@ -137,7 +137,7 @@ class ESPHomeHandlerAudioServicesTest {
 
         handler = new ESPHomeHandler(new ThingImpl(BindingConstants.THING_TYPE_DEVICE, "device"),
                 new ConnectionSelector(), channelTypeProvider, stateDescriptionProvider, eventSubscriber, executor,
-                packetProcessorExecutor, new KeySequentialExecutor(packetProcessorExecutor), eventPublisher, null, null,
+                packetProcessorExecutor, new KeySequentialExecutor(packetProcessorExecutor), eventPublisher, null,
                 bundleContext, versionService, firmwareUpgradeService, hostnameResolver, audioHTTPServer,
                 networkAddressService, serialPortProvider, null);
         handler.setCallback(callback);

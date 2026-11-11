@@ -117,7 +117,7 @@ public abstract class AbstractESPHomeDeviceTest {
         serialPortProvider = new ESPHomeSerialPortProvider();
 
         thingHandler = new ESPHomeHandler(thing, selector, channelTypeProvider, stateDescriptionProvider,
-                eventSubscriber, executor, executor, new KeySequentialExecutor(executor), eventPublisher, null, null,
+                eventSubscriber, executor, executor, new KeySequentialExecutor(executor), eventPublisher, null,
                 bundleContext, versionService, firmwareUpgradeService, hostnameResolver, audioHTTPServer,
                 networkAddressService, serialPortProvider, null);
         thingHandlerCallback = Mockito.mock(ThingHandlerCallback.class);

@@ -9,13 +9,6 @@
 	<connection>local</connection>
 	<service-id>binding.esphome</service-id>
 	<config-description>
-		<parameter name="defaultEncryptionKey" type="text" required="false">
-			<context>password</context>
-			<label>Default Base64 encoded encryption key for encrypted connection</label>
-			<description>Specified in the api: -> encryption: -> key: section of the esphome device config. See
-				https://esphome.io/components/api#configuration-variables. Will be used as default if not configured on the device
-				thing.</description>
-		</parameter>
 		<parameter name="esphomeExecutable" type="text" required="false">
 			<label>Fully qualified path for 'esphome' binary</label>
 			<description>Used for firmware upgrades. Make sure you have given OH the necessary permissions to execute this

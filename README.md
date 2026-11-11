@@ -32,11 +32,10 @@ Read more here: https://esphome.io/components/api#advantages-over-mqtt
    from the Marketplace https://community.openhab.org/t/esphome-binding-for-the-native-api/146849
 4. Wait for discovery to find your device - or add manually in a thing file.
 
-Devices that already have an API encryption key require `encryptionKey` in the Thing configuration, or a default
-key in the binding configuration.
+Devices that already have an API encryption key require `encryptionKey` in the Thing configuration.
 
 For unprovisioned devices supporting encrypted API key provisioning, adoption is automatic after an editable
-(UI-managed) Thing is created, provided neither the Thing nor the binding supplies a key. The binding connects
+(UI-managed) Thing is created, provided the Thing does not supply a key. The binding connects
 using ESPHome's reserved bootstrap key, checks that the device reports it is provisionable, generates a random
 32-byte key, saves it in the Thing's `encryptionKey`, and sends it to the device. After confirmation it reconnects
 with the saved key. File-defined Things require a manually configured key.
@@ -53,15 +52,6 @@ The binding uses mDNS to automatically discover devices on the network.
 ## Binding Configuration
 
 Configuration file to use: `$OH_CONFDIR/services/runtime.cfg` .
-
-### Common encryption key for all devices
-
-It is possible to set a default encryption key for all devices in the binding configuration. This is useful if you
-have a lot of devices using the same encryption key. If you are using file-based config, add
-
-```
-binding.esphome:defaultEncryptionKey=<BASE64ENCODEDKEY>
-```
 
 ### Audio streaming with reverse proxy / custom base URL
 
@@ -106,7 +96,7 @@ is useful for devices that are known to be online, but be just sleeping when the
 | `deviceId`                | `text`    | Expected name of ESPHome. Used to ensure that we're communicating with the correct device. Use value from `esphome.name` in ESPHome device configuration                                                                                                                                                                                                                                                                                            |          | yes                              | no       |
 | `hostname`                | `text`    | Hostname or IP address of the device. Typically something like `myboard.local` or `192.168.0.123`. *It is recommended to configure your ESP with a static IP address and use that here, it will allow for quicker reconnects*                                                                                                                                                                                                                       |          | yes                              | no       |
 | `port`                    | `integer` | IP Port of the device                                                                                                                                                                                                                                                                                                                                                                                                                               | 6053     | no                               | no       |
-| `encryptionKey`           | `text`    | Encryption key as defined in `api: encryption: key: <BASE64ENCODEDKEY>`. See https://esphome.io/components/api#configuration-variables. *Can also be set on the binding level if your ESPs all use the same key.*                                                                                                                                                                                                                                   |          | yes or via binding configuration | yes      |
+| `encryptionKey`           | `text`    | Encryption key as defined in `api: encryption: key: <BASE64ENCODEDKEY>`. See https://esphome.io/components/api#configuration-variables.                                                                                                                                                                                                                                   |          | yes | yes      |
 | `allowActions`            | `boolean` | Allow the device to send actions and events.                                                                                                                                                                                                                                                                                                                                                                                                        | false    | no                               | no       |
 | `deepSleep`               | `boolean` | Enables deep sleep / passive connection mode. If your ESPHome device is configured with `deep_sleep`, enable this setting.                                                                                                                                                                                                                                                                                                                          | false    | no                               | yes      |
 | `deepSleepTimeoutSeconds` | `integer` | Deep sleep timeout watchdog. If this number of seconds has passed, the thing status changes to `OFFLINE`. Set this to *at least* the number of seconds your device sleep. Set to `0` to disable                                                                                                                                                                                                                                                     | 3600     | no                               | yes      |

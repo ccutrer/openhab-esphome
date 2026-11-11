@@ -116,7 +116,7 @@ class ESPHomeHandlerLastKnownIpAddressTest {
 
         handler = new ESPHomeHandler(thing, new ConnectionSelector(), channelTypeProvider, stateDescriptionProvider,
                 eventSubscriber, executor, packetProcessorExecutor, new KeySequentialExecutor(packetProcessorExecutor),
-                eventPublisher, null, null, bundleContext, versionService, firmwareUpgradeService, hostnameResolver,
+                eventPublisher, null, bundleContext, versionService, firmwareUpgradeService, hostnameResolver,
                 audioHTTPServer, networkAddressService, serialPortProvider, managedThingProvider);
 
         setField("config", new ESPHomeConfiguration());

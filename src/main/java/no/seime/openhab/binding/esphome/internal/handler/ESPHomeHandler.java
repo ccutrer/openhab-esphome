@@ -111,8 +111,6 @@ public class ESPHomeHandler extends BaseThingHandler implements CommunicationLis
     private final KeySequentialExecutor packetProcessor;
     private final EventPublisher eventPublisher;
     @Nullable
-    private final String bindingPropertyDefaultEncryptionKey;
-    @Nullable
     private final String bindingPropertyAudioBaseUrl;
     private final BundleContext bundleContext;
     private final ESPHomeVersionService versionService;
@@ -168,11 +166,11 @@ public class ESPHomeHandler extends BaseThingHandler implements CommunicationLis
             ESPChannelTypeProvider dynamicChannelTypeProvider, ESPStateDescriptionProvider stateDescriptionProvider,
             ESPHomeEventSubscriber eventSubscriber, MonitoredCompositeExecutorService executorService,
             ExecutorService backgroundExecutor, KeySequentialExecutor packetProcessor, EventPublisher eventPublisher,
-            @Nullable String bindingPropertyDefaultEncryptionKey, @Nullable String bindingPropertyAudioBaseUrl,
-            BundleContext bundleContext, ESPHomeVersionService versionService,
-            FirmwareUpgradeService firmwareUpgradeService, ESPHomeHostnameResolver hostnameResolver,
-            AudioHTTPServer audioHTTPServer, NetworkAddressService networkAddressService,
-            ESPHomeSerialPortProvider serialPortProvider, @Nullable ManagedThingProvider managedThingProvider) {
+            @Nullable String bindingPropertyAudioBaseUrl, BundleContext bundleContext,
+            ESPHomeVersionService versionService, FirmwareUpgradeService firmwareUpgradeService,
+            ESPHomeHostnameResolver hostnameResolver, AudioHTTPServer audioHTTPServer,
+            NetworkAddressService networkAddressService, ESPHomeSerialPortProvider serialPortProvider,
+            @Nullable ManagedThingProvider managedThingProvider) {
         super(thing);
         this.managedThingProvider = managedThingProvider;
         this.connectionSelector = connectionSelector;
@@ -184,7 +182,6 @@ public class ESPHomeHandler extends BaseThingHandler implements CommunicationLis
         this.backgroundExecutor = backgroundExecutor;
         this.packetProcessor = packetProcessor;
         this.eventPublisher = eventPublisher;
-        this.bindingPropertyDefaultEncryptionKey = bindingPropertyDefaultEncryptionKey;
         this.bindingPropertyAudioBaseUrl = bindingPropertyAudioBaseUrl;
         this.bundleContext = bundleContext;
         this.versionService = versionService;
@@ -533,12 +530,9 @@ public class ESPHomeHandler extends BaseThingHandler implements CommunicationLis
         provisioningKeyPending = false;
         String encryptionKey = config.encryptionKey;
         if (StringUtils.isBlank(encryptionKey)) {
-            encryptionKey = StringUtils.defaultString(bindingPropertyDefaultEncryptionKey);
-        }
-        if (StringUtils.isBlank(encryptionKey)) {
             if (managedThingProvider == null || managedThingProvider.get(thing.getUID()) == null) {
                 updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.CONFIGURATION_ERROR,
-                        "No encryption key configured. Please set 'encryptionKey' in thing configuration or a default one in binding configuration");
+                        "No encryption key configured. Please set 'encryptionKey' in thing configuration");
                 return;
             }
             encryptionKey = PROVISIONING_KEY;
