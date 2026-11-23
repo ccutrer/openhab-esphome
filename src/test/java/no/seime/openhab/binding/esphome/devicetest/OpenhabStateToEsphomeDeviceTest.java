@@ -114,7 +114,9 @@ public class OpenhabStateToEsphomeDeviceTest extends AbstractESPHomeDeviceTest {
 
         thingHandler.initialize();
         await().until(() -> thingHandler.isInterrogated());
-        assertEquals(testParameters.size() + 2, thingHandler.getDynamicChannels().size()); // Firmware channels
+        // Make sure to count _distinct_ channels (which might vary depending on openHAB versions)
+        long readbackChannels = testParameters.stream().map(parameter -> parameter.itemOrThingId).distinct().count();
+        assertEquals(readbackChannels + 2, thingHandler.getDynamicChannels().size()); // Firmware channels
 
         // Verify that initial state is copied via the copy sensor and transferred back
         for (Parameter parameter : testParameters) {
